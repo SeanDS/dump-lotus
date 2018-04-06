@@ -47,3 +47,7 @@ And some consequences for the parser:
   - Pages are considered unique by a function of their title, page number, authors, categories and creation
     date. If two pages have these exact values, but different content, they will be considered the same
     and only one copy will be saved.
+
+## Credits
+Sean Leavey  
+<github@attackllama.com>
