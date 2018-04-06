@@ -1,0 +1,3 @@
+# Netscape HTTP Cookie File
+
+.my.domain.com  TRUE	/	FALSE	1524660842	DomAuthSessId	12345678901234567890123456789012
