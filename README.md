@@ -33,6 +33,16 @@ Python packages:
 4. Run the Python parser.
   - You can use the example script, or create your own.
 
+Extra notes:
+  - Some files with special characters may not be downloaded correctly, as the Lotus Notes web interface
+    does not correctly translate these URLs. You may, for some URLs, get a `Http Status Code: 400` message
+    explaining `Http request contains a malformed escape sequence`, despite the attachment working in the
+    full Lotus Notes client. In this case, it is suggested to manually download these files via the client
+    if practical. Then, because of the behaviour of `wget`, you must also find any URLs that reference this
+    URL and change from from absolute form back to relative (the `convert-links` flag is used, which is
+    helpful for this application, except when files are not downloaded; then they are converted to absolute
+    URLs)
+
 ## Lotus Notes quirks
 Some Lotus Notes quirks that must be kept in mind by the user:
   - Page numbers are not unique. Different documents can happily have the same page numbers.
@@ -47,6 +57,15 @@ And some consequences for the parser:
   - Pages are considered unique by a function of their title, page number, authors, categories and creation
     date. If two pages have these exact values, but different content, they will be considered the same
     and only one copy will be saved.
+
+## Inserting data into WordPress
+There is also a set of classes to interface with WordPress via `WP-CLI`.
+
+### Instructions
+1. Create WordPress users manually.
+  - This step is not automated as users may already exist, have different names or the users associated with
+    Lotus Notes pages may not be part of the new site.
+  - The users are mapped to WordPress users using the `user_map` dict supplied later.
 
 ## Credits
 Sean Leavey  

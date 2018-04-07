@@ -1,5 +1,7 @@
 import os
 import logging
+import contextlib
+import pytz
 
 from .objects import LotusPage, LotusMedia
 from .exceptions import PageInvalidException, MediaInvalidException
@@ -9,8 +11,14 @@ LOGGER = logging.getLogger("parser")
 class LotusParser(object):
     """Parses Lotus Notes documents"""
 
-    def __init__(self, root_path):
+    def __init__(self, root_path, timezone=None, parser="html.parser"):
+        if timezone is None:
+            # assume UTC
+            timezone = pytz.UTC
+
         self.root_path = root_path
+        self.timezone = timezone
+        self.parser = parser
 
         self.pages = []
         self.media = []
@@ -25,27 +33,32 @@ class LotusParser(object):
     def parse_all(self):
         """Parse documents under root path"""
 
-        for (dirpath, _, filenames) in os.walk(self.root_path):
-            LOGGER.debug("entering %s" % dirpath)
+        with self.working_directory(self.root_path):
+            for (dirpath, _, filenames) in os.walk('.'):
+                # remove symlinks
+                dirpath = os.path.normpath(dirpath)
 
-            for filename in filenames:
-                # create full path
-                path = os.path.join(dirpath, filename)
+                LOGGER.debug("entering %s" % dirpath)
 
-                LOGGER.debug("parsing %s" % filename)
-                self.parse(path)
+                for filename in filenames:
+                    # file path relative to root path
+                    path = os.path.join(dirpath, filename)
+
+                    # attempt to parse file
+                    LOGGER.debug("parsing %s" % path)
+                    self.parse(path)
     
     def parse(self, path):
         """Attempt to parse the specified file as a Lotus object"""
 
         try:
-            page = LotusPage(path)
+            page = LotusPage(path=path, timezone=self.timezone, parser=self.parser)
             
             LOGGER.info("found page %s: %s" % (page.page, page.title))
 
             if page in self.pages:
                 # this is a duplicate
-                # get first occurrance's path
+                # get first occurrance
                 first_page = self.pages[self.pages.index(page)]
 
                 LOGGER.info("page is a duplicate of %s" % first_page.path)
@@ -61,9 +74,9 @@ class LotusParser(object):
             pass
         
         try:
-            media = LotusMedia(path)
+            media = LotusMedia(path=path)
 
-            LOGGER.info("found media %s (%s)" % (media.lotus_id, media.mime_type))
+            LOGGER.info("found media %s (%s)" % (media.path, media.mime_type))
 
             if media in self.media:
                 # this is a duplicate
@@ -85,5 +98,40 @@ class LotusParser(object):
         LOGGER.debug("item %s not recognised" % path)
         self.unrecognised.append(path)
     
+    @property
     def mime_types(self):
         return set([media.mime_type for media in self.media])
+
+    @property
+    def authors(self):
+        return set([author for page in self.pages for author in page.authors])
+
+    @property    
+    def categories(self):
+        return set([category for page in self.pages for category in page.categories])
+    
+    @property
+    def internal_urls(self):
+        return set([url for page in self.pages for url in page.internal_urls])
+
+    @property
+    def internal_attachments(self):
+        return set([attachment for page in self.pages for attachment in page.internal_attachments])
+
+    @property
+    def internal_images(self):
+        return set([image for page in self.pages for image in page.internal_images])
+    
+    @contextlib.contextmanager
+    def working_directory(self, path):
+        # previous directory
+        previous_path = os.getcwd()
+
+        # change directory to new path
+        os.chdir(path)
+        
+        # hand control to context
+        yield
+        
+        # change directory back to previous path
+        os.chdir(previous_path)
