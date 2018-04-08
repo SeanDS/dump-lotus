@@ -34,14 +34,18 @@ Python packages:
   - You can use the example script, or create your own.
 
 Extra notes:
-  - Some files with special characters may not be downloaded correctly, as the Lotus Notes web interface
+  - The Lotus Notes web client does not correctly display content given its character encoding. Some
+    documents may contain broken characters that will confuse the parser. In addition to this, some
+    attached files with special characters may not be downloaded correctly, as the Lotus Notes web interface
     does not correctly translate these URLs. You may, for some URLs, get a `Http Status Code: 400` message
     explaining `Http request contains a malformed escape sequence`, despite the attachment working in the
-    full Lotus Notes client. In this case, it is suggested to manually download these files via the client
-    if practical. Then, because of the behaviour of `wget`, you must also find any URLs that reference this
+    full Lotus Notes client. In this case, it is suggested to:
+      - Manually fix these characters
+      - Manually download these files via the client
+    Then, because of the behaviour of `wget`, you must also find any URLs that reference this
     URL and change from from absolute form back to relative (the `convert-links` flag is used, which is
     helpful for this application, except when files are not downloaded; then they are converted to absolute
-    URLs)
+    URLs).
 
 ## Lotus Notes quirks
 Some Lotus Notes quirks that must be kept in mind by the user:

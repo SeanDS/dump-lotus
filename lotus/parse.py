@@ -1,137 +1,116 @@
 import os
 import logging
-import contextlib
 import pytz
 
-from .objects import LotusPage, LotusMedia
-from .exceptions import PageInvalidException, MediaInvalidException
+from .objects import LotusPage
+from .exceptions import PageInvalidException
 
-LOGGER = logging.getLogger("parser")
+LOGGER = logging.getLogger("lotus-parser")
 
 class LotusParser(object):
     """Parses Lotus Notes documents"""
 
-    def __init__(self, root_path, timezone=None, parser="html.parser"):
+    def __init__(self, root_path, archive_dir, timezone=None, parser="html.parser"):
         if timezone is None:
             # assume UTC
             timezone = pytz.UTC
 
         self.root_path = root_path
+        self.archive_dir = archive_dir
         self.timezone = timezone
         self.parser = parser
 
+        # page objects
         self.pages = []
-        self.media = []
 
-        # unrecognised pages
-        self.unrecognised = []
-
-        # identical pages/media with different URLs (some weird Lotus Notes thing)
-        self.page_path_aliases = {}
-        self.media_path_aliases = {}
+        # map from paths to pages
+        self.page_paths = {}
     
-    def parse_all(self):
+        if not os.path.isdir(self.archive_dir):
+            raise ValueError("specified archive dir, %s, is not a directory" % self.archive_dir)
+
+    def find(self):
         """Parse documents under root path"""
 
-        with self.working_directory(self.root_path):
-            for (dirpath, _, filenames) in os.walk('.'):
-                # remove symlinks
-                dirpath = os.path.normpath(dirpath)
+        for (dirpath, _, filenames) in os.walk('.'):
+            # remove symlinks
+            dirpath = os.path.normpath(dirpath)
 
-                LOGGER.debug("entering %s" % dirpath)
+            LOGGER.debug("entering %s" % dirpath)
 
-                for filename in filenames:
-                    # file path relative to root path
-                    path = os.path.join(dirpath, filename)
+            for filename in filenames:
+                # file path relative to root path
+                path = os.path.join(dirpath, filename)
 
-                    # attempt to parse file
-                    LOGGER.debug("parsing %s" % path)
-                    self.parse(path)
+                # attempt to parse file
+                LOGGER.debug("parsing %s" % path)
+                self.parse(path)
     
     def parse(self, path):
         """Attempt to parse the specified file as a Lotus object"""
 
         try:
-            page = LotusPage(path=path, timezone=self.timezone, parser=self.parser)
+            page = LotusPage(path=path, archive_dir=self.archive_dir, timezone=self.timezone, parser=self.parser)
             
-            LOGGER.info("found page %s: %s" % (page.page, page.title))
+            LOGGER.info("found page %s" % page)
 
             if page in self.pages:
                 # this is a duplicate
                 # get first occurrance
-                first_page = self.pages[self.pages.index(page)]
+                original = self.pages[self.pages.index(page)]
 
-                LOGGER.info("page is a duplicate of %s" % first_page.path)
-
-                # add alias
-                self.page_path_aliases[page.path] = first_page.path
+                LOGGER.info("path %s is a duplicate of %s" % (page.path, original.path))
             else:
                 self.pages.append(page)
             
+            # map target path
+            self.page_paths[page.path] = page
+
             return
         except PageInvalidException:
             # not a page
             pass
-        
-        try:
-            media = LotusMedia(path=path)
 
-            LOGGER.info("found media %s (%s)" % (media.path, media.mime_type))
+    def archive(self):
+        """Remove duplicate URLs, attachments and images and save"""
 
-            if media in self.media:
-                # this is a duplicate
-                # get first occurrance's path
-                first_media = self.media[self.media.index(media)]
+        # running list of media file hashes and objects
+        media_files = {}
 
-                LOGGER.info("media is a duplicate of %s" % first_media.path)
-                
-                # add alias
-                self.media_path_aliases[media.path] = first_media.path
-            else:
-                self.media.append(media)
+        for page in self.pages:
+            # map page paths to objects
+            for unique_hash, path in page.urls.items():
+                # replace path with object
+                page.urls[unique_hash] = self.page_paths[path]
 
-            return
-        except MediaInvalidException:
-            # not media
-            pass
+            # map attachment paths to objects
+            for unique_hash, attachment in page.attachments.items():
+                if unique_hash in media_files:
+                    # duplicate; update object
+                    LOGGER.info("attachment %s on %s is duplicate of %s" % (attachment, page, media_files[unique_hash]))
+                    page.attachments[unique_hash] = media_files[unique_hash]
+                else:
+                    # add attachment to list
+                    media_files[unique_hash] = attachment
+            
+            # map image paths to objects
+            for unique_hash, image in page.images.items():
+                if unique_hash in media_files:
+                    # duplicate; update object
+                    LOGGER.info("image %s on %s is duplicate of %s" % (image, page, media_files[unique_hash]))
+                    page.images[unique_hash] = media_files[unique_hash]
+                else:
+                    # add image to list
+                    media_files[unique_hash] = image
 
-        LOGGER.debug("item %s not recognised" % path)
-        self.unrecognised.append(path)
-    
-    @property
-    def mime_types(self):
-        return set([media.mime_type for media in self.media])
+            # archive page
+            page.archive()
 
-    @property
-    def authors(self):
-        return set([author for page in self.pages for author in page.authors])
-
-    @property    
-    def categories(self):
-        return set([category for page in self.pages for category in page.categories])
-    
-    @property
-    def internal_urls(self):
-        return set([url for page in self.pages for url in page.internal_urls])
+        # archive deduplicated media files
+        for media_file in media_files.values():
+            media_file.archive()
 
     @property
-    def internal_attachments(self):
-        return set([attachment for page in self.pages for attachment in page.internal_attachments])
-
-    @property
-    def internal_images(self):
-        return set([image for page in self.pages for image in page.internal_images])
-    
-    @contextlib.contextmanager
-    def working_directory(self, path):
-        # previous directory
-        previous_path = os.getcwd()
-
-        # change directory to new path
-        os.chdir(path)
-        
-        # hand control to context
-        yield
-        
-        # change directory back to previous path
-        os.chdir(previous_path)
+    def media(self):
+        for page in self.pages:
+            yield from page.media
