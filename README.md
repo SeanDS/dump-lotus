@@ -1,5 +1,6 @@
-# Lotus Dump
-Export Lotus Notes documents into Python objects
+# Dump Lotus
+Get rid of Lotus Notes! Export Lotus Notes documents into Python objects,
+where they can be further exported into generic XML documents.
 
 ## Requirements
 System packages:
