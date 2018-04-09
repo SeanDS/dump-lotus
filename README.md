@@ -63,15 +63,6 @@ And some consequences for the parser:
     date. If two pages have these exact values, but different content, they will be considered the same
     and only one copy will be saved.
 
-## Inserting data into WordPress
-There is also a set of classes to interface with WordPress via `WP-CLI`.
-
-### Instructions
-1. Create WordPress users manually.
-  - This step is not automated as users may already exist, have different names or the users associated with
-    Lotus Notes pages may not be part of the new site.
-  - The users are mapped to WordPress users using the `user_map` dict supplied later.
-
 ## Credits
 Sean Leavey  
 <github@attackllama.com>
