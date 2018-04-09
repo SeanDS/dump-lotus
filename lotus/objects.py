@@ -201,9 +201,7 @@ class LotusPage(LotusObject):
             # add element to document content
             content.append(str(element))
 
-        # prettify content
-        content = BeautifulSoup("".join(content), self.parser)
-        self.content = content.prettify()
+        self.content = content
     
     def extract_references(self, element):
         """Find page or media links in element"""
