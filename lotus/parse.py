@@ -1,6 +1,8 @@
 import os
 import logging
+
 import pytz
+from lxml import etree
 
 from .objects import LotusPage
 from .exceptions import PageInvalidException
@@ -109,8 +111,46 @@ class LotusParser(object):
         # archive deduplicated media files
         for media_file in media_files.values():
             media_file.archive()
+        
+        # archive authors
+        authors = etree.Element("authors")
+        for author in self.authors:
+            etree.SubElement(authors, "author").text = etree.CDATA(author)
+        tree = etree.ElementTree(authors)
+        tree.write(self.author_archive_filepath, encoding="utf-8", xml_declaration=True)
+
+        # archive categories
+        categories = etree.Element("categories")
+        for category in self.categories:
+            etree.SubElement(categories, "category").text = etree.CDATA(category)
+        tree = etree.ElementTree(categories)
+        tree.write(self.category_archive_filepath, encoding="utf-8", xml_declaration=True)
 
     @property
     def media(self):
         for page in self.pages:
             yield from page.media
+    
+    @property
+    def authors(self):
+        authors = set()
+        for page in self.pages:
+            authors.update(page.authors)
+        
+        return authors
+    
+    @property
+    def author_archive_filepath(self):
+        return os.path.join(self.archive_dir, "meta", "authors.xml")
+    
+    @property
+    def categories(self):
+        categories = set()
+        for page in self.pages:
+            categories.update(page.categories)
+        
+        return categories
+    
+    @property
+    def category_archive_filepath(self):
+        return os.path.join(self.archive_dir, "meta", "categories.xml")

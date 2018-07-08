@@ -7,6 +7,7 @@ import hashlib
 import urllib
 import re
 import shutil
+
 from binaryornot.check import is_binary
 from lxml import etree
 from bs4 import BeautifulSoup, UnicodeDammit
@@ -180,7 +181,7 @@ class LotusPage(LotusObject):
         ignore_elements = ["script"]
         
         # empty page content
-        content = []
+        lines = []
 
         for element in elements:
             if element.name in ignore_elements:
@@ -199,9 +200,9 @@ class LotusPage(LotusObject):
             element = self.extract_references(element)
             
             # add element to document content
-            content.append(str(element))
+            lines.append(str(element))
 
-        self.content = content
+        self.content = "\n".join(lines)
     
     def extract_references(self, element):
         """Find page or media links in element"""
@@ -295,7 +296,7 @@ class LotusPage(LotusObject):
         # add metadata
         etree.SubElement(page, "title").text = etree.CDATA(self.title)
         etree.SubElement(page, "page").text = etree.CDATA(self.page)
-        etree.SubElement(page, "created").text = self.created.isoformat()
+        etree.SubElement(page, "created").text = str(self.created.timestamp())
 
         # add authors
         authors = etree.SubElement(page, "authors")
