@@ -11,7 +11,7 @@ Python packages:
   - `pytz`
   - `python-magic`
 
-## Instructions
+## Scraping Lotus Notes pages
 1. Generate a web backup of your Lotus Notes application.
   - This requires your Lotus Notes administrator.
 2. (Optional) If your backup is protected by Lotus cookie-based web authentication, obtain the
@@ -31,8 +31,6 @@ Python packages:
   - These are matched by the scraper because they link to relevant posts.
   - They are not required for the Python parser, and since each file can be many megabytes of HTML,
     they slow down the parsing operation.
-4. Run the Python parser.
-  - You can use the example script, or create your own.
 
 Extra notes:
   - The Lotus Notes web client does not correctly display content given its character encoding. Some
@@ -47,6 +45,18 @@ Extra notes:
     URL and change from from absolute form back to relative (the `convert-links` flag is used, which is
     helpful for this application, except when files are not downloaded; then they are converted to absolute
     URLs).
+
+## Building XML files
+1. Run the Python parser.
+  - You can use the example script, or create your own.
+
+## Build WordPress import XML file
+1. Open `wp-config.php` and add `define('ALLOW_UNFILTERED_UPLOADS', true);` to allow unfiltered uploads
+   temporarily
+2. Edit `wordpress-importer` plugin to disable `if ( isset( $headers['content-length'] ) && $filesize != $headers['content-length'] ) {` block
+
+9. Remove `define('ALLOW_UNFILTERED_UPLOADS', true);` from `wp-config.php`.
+10. Remove edits to `wordpress-importer`
 
 ## Lotus Notes quirks
 Some Lotus Notes quirks that must be kept in mind by the user:

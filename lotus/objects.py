@@ -79,6 +79,9 @@ class LotusPage(LotusObject):
         self.urls = {}
         self.attachments = {}
         self.images = {}
+
+        # fields
+        self._hash_filename = None
     
         super(LotusPage, self).__init__(*args, **kwargs)
 
@@ -172,59 +175,50 @@ class LotusPage(LotusObject):
         date_obj.replace(tzinfo=self.timezone)
 
         # set time to midday
-        self.created = date_obj + datetime.timedelta(hours=12)
+        #self.created = date_obj + datetime.timedelta(hours=12)
+        self.created = date_obj
     
     def parse_content(self, elements):
         """Parse specified elements as the page content"""
-
-        # elements to ignore
-        ignore_elements = ["script"]
         
         # empty page content
         lines = []
 
         for element in elements:
-            if element.name in ignore_elements:
-                # skip
-                continue
-            elif element.name == "a" and element.text == "top" and element.has_attr("href") and element["href"].endswith("#top"):
-                # ignore link to top
-                # e.g. <a href="bd348c3ef391266bc125748f00501d0f%3FOpenDocument.html#top"><font size="1">top</font></a>
-                continue
-            elif element.name == "a" and element.has_attr("name") and element["name"] == "top":
-                # ignore weird top links
-                # <a name="top"></a>
-                continue
-                            
-            # look for links, attachments, images
-            element = self.extract_references(element)
-            
-            # add element to document content
+            self.parse_element(element)
+            # add elements to document content
             lines.append(str(element))
 
         self.content = "\n".join(lines)
     
+    def parse_element(self, element):
+        """Parse element"""
+
+        self.extract_references(element)
+
+        if hasattr(element, 'children'):
+            for child in element.children:
+                self.parse_element(child)
+
     def extract_references(self, element):
         """Find page or media links in element"""
 
         if not hasattr(element, 'contents'):
             # this is not a tag
-            return element
+            return
 
         # check for cross-referencing links
         if element.name == "a" and element.has_attr("href"):
             if element["href"].endswith("OpenDocument.html"):
                 # replace this internal link
-                element = self.extract_cross_reference(element)
+                self.extract_cross_reference(element)
             elif "$FILE" in element["href"]:
                 # replace this attached file
-                element = self.extract_attachment(element)
+                self.extract_attachment(element)
         # check for embedded images
         elif element.name == "img" and element.has_attr("src") and "Body" in element["src"]:
             # replace this embedded image
-            element = self.extract_image(element)
-        
-        return element
+            self.extract_image(element)
 
     def extract_cross_reference(self, element):
         # get path relative to root
@@ -238,8 +232,6 @@ class LotusPage(LotusObject):
 
         self.urls[key] = path
 
-        return element
-
     def extract_attachment(self, element):
         # get path relative to root
         path = self.full_url_path(element["href"])
@@ -248,15 +240,13 @@ class LotusPage(LotusObject):
             media = LotusMedia(path=path, archive_dir=self.archive_dir)
         except MediaInvalidException:
             # not attachment
-            return element
+            return
 
         # replace URL with unique ID
         element["href"] = media.file_hash
 
         LOGGER.info("found attachment %s" % media)
         self.attachments[media.file_hash] = media
-
-        return element
 
     def extract_image(self, element):
         # get path relative to root
@@ -266,15 +256,13 @@ class LotusPage(LotusObject):
             media = LotusMedia(path=path, archive_dir=self.archive_dir)
         except MediaInvalidException:
             # not image
-            return element
+            return
 
         # replace URL with unique ID
         element["src"] = media.file_hash
 
         LOGGER.info("found image %s" % media)
         self.images[media.file_hash] = media
-
-        return element
 
     def full_url_path(self, path):
         """Return full path for URL, decoding any entities"""
@@ -325,21 +313,33 @@ class LotusPage(LotusObject):
         for unique_hash, image in self.images.items():
             etree.SubElement(images, "image", path=image.archive_path).text = unique_hash
 
+        # add urls
+        urls = etree.SubElement(page, "urls")
+
+        for unique_hash, other_page in self.urls.items():
+            etree.SubElement(urls, "url", path=other_page.archive_path).text = unique_hash
+
         # save pretty version
         tree = etree.ElementTree(page)
         tree.write(self.archive_path, encoding="utf-8", xml_declaration=True)
 
     @property
     def archive_path(self):
-        # unique hash of this object
-        # can't just use hash(self) as filename as this is sometimes negative and not stable between
-        # kernel instances
-        unique_hash = path_hash(self.path)
+        return os.path.join(self.archive_dir, self.hash_filename)
 
-        # XML filename
-        filename = "%s.xml" % unique_hash
+    @property
+    def hash_filename(self):
+        if self._hash_filename is None:
+            # unique hash of this object
+            # can't just use hash(self) as filename as this is sometimes negative and not stable between
+            # kernel instances
+            #unique_hash = path_hash(self.path)
+            unique_hash = hashlib.md5(str(hash(self)).encode('utf-8')).hexdigest()
 
-        return os.path.join(self.archive_dir, filename)
+            # XML filename
+            self._hash_filename = "%s.xml" % unique_hash
+        
+        return self._hash_filename
 
     @property
     def archive_dir(self):
@@ -354,17 +354,14 @@ class LotusPage(LotusObject):
         return self.title
 
     def __eq__(self, other):
-        """Equality comparison operator
-        
-        Compares Lotus IDs
-        """
-
-        return self.title == other.title and self.page == other.page and \
-               self.authors == other.authors and self.categories == other.categories and \
-               self.created == other.created
+        """Equality comparison operator"""
+        #return self.title == other.title and self.page == other.page and \
+        #       self.authors == other.authors and self.categories == other.categories and \
+        #       self.created == other.created
+        return hash(self) == hash(other)
     
     def __hash__(self):
-        return (self.title, self.page, frozenset(self.authors), frozenset(self.categories), self.created)
+        return hash((self.title, self.page, frozenset(self.authors), frozenset(self.categories), self.created))
 
 class LotusMedia(LotusObject):
     def __init__(self, *args, **kwargs):        
@@ -375,7 +372,7 @@ class LotusMedia(LotusObject):
         self._archive_path = None
 
         # unique hash of file contents
-        self.file_hash = None
+        self._file_hash = None
 
         super(LotusMedia, self).__init__(*args, **kwargs)
     
@@ -385,24 +382,34 @@ class LotusMedia(LotusObject):
         LOGGER.debug("getting mime type")
         self.mime_type = magic.from_file(self.path, mime=True)
         
-        self.compute_file_hash()
+        # force file hash to be computed
+        _ = self.file_hash
 
-    def compute_file_hash(self):
-        LOGGER.debug("computing MD5 hash")
+    @property
+    def file_hash(self):
+        if self._file_hash is None:
+            LOGGER.debug("computing MD5 hash")
 
-        md5 = hashlib.md5()
+            md5 = hashlib.md5()
 
-        with open(self.path, 'rb') as obj:
-            while True:
-                data = obj.read(1048576)
+            with open(self.path, 'rb') as obj:
+                while True:
+                    data = obj.read(1048576)
 
-                if not data:
-                    # end of file
-                    break
+                    if not data:
+                        # end of file
+                        break
+                    
+                    md5.update(data)
                 
-                md5.update(data)
-            
-        self.file_hash = md5.hexdigest()
+            self._file_hash = md5.hexdigest()
+        
+        return self._file_hash
+
+    @property
+    def hash_filename(self):
+        _, ext = os.path.splitext(self.sanitised_filename)
+        return self.file_hash + ext.lower()
 
     def archive(self):
         """Archive media file"""
@@ -412,17 +419,25 @@ class LotusMedia(LotusObject):
 
     @property
     def archive_path(self):
-        # first path attempt
-        path = os.path.join(self.archive_dir, self.sanitised_filename)
-
-        count = 1
-
-        while os.path.isfile(path):
-            path = os.path.join(self.archive_dir, self.sanitised_filename) + str(count)
-
-            count += 1
-        
-        return path
+        #if self._archive_path is None:
+        #    # append hash to start to try to make unique
+        #    filename = self.file_hash[:10] + "_" + self.sanitised_filename
+        #
+        #    # first path attempt
+        #    first_filename = os.path.join(self.archive_dir, filename)
+        #    root, ext = os.path.splitext(first_filename)
+        #    path = root + ext
+        #
+        #    count = 1
+        #
+        #    while os.path.isfile(path):
+        #        path = root + str(count) + ext
+        #        count += 1
+        #    
+        #    self._archive_path = path
+        #
+        #return self._archive_path
+        return os.path.join(self.archive_dir, self.hash_filename)
 
     @property
     def sanitised_filename(self):
@@ -438,7 +453,7 @@ class LotusMedia(LotusObject):
         filename = os.path.basename(self.path)
 
         # find Lotus Notes extension
-        match = re.search("FieldElemFormat=(\w+)", filename)
+        match = re.search(r"FieldElemFormat=(\w+)", filename)
 
         if match is not None:
             file_extension = match.group(1)
@@ -464,8 +479,9 @@ class LotusMedia(LotusObject):
         
         filename = filename.replace('%20', '-')
         filename = filename.replace('+', '-')
-        
         filename = re.sub(r'[\r\n\t -]+', '-', filename)
+        # remove leading or trailing special characters
+        filename = filename.strip('.-_')
 
         # skip unnamed file check (where e.g. "exe" becomes "unnamed-file.exe")
         # and other file extension stuff
