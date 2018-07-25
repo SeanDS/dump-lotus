@@ -76,8 +76,10 @@ Extra notes:
 2. Activate the [Academic Labbook Plugin](https://alp.attackllama.com/) on
    the network admin plugins page.
 3. Activate the `Alpine` theme on the network admin themes page.
-3. Change the theme on the target blog appearance page to `Alpine`.
-4. (Optional) Delete the default post and comment on the target blog.
+4. Change the theme on the target blog appearance page to `Alpine`.
+5. Install the "Wordpress Importer" plugin using the WordPress network admin plugin screen. This is
+   published by "wordpressdotorg".
+6. (Optional) Delete the default post and comment on the target blog.
 
 ## Setting up Python project
 1. Run `setup.py` in this directory to install the dependencies, either directly with Python or via pip,
@@ -106,12 +108,15 @@ Extra notes:
 
 ## Importing XML file into WordPress
 1. Activate the WordPress Importer plugin with `wp plugin activate wordpress-importer --path=/path/to/wordpress/base/directory --url=https://url/for/blog/`.
-2. Open `wp-config.php` and add `define('ALLOW_UNFILTERED_UPLOADS', true);` to allow unfiltered uploads
-   temporarily
-3. Edit `wordpress-importer` plugin to comment out the
-`if ( isset( $headers['content-length'] ) && $filesize != $headers['content-length'] ) {` block. This causes
-   failures in the import script when the file sizes between source and destination servers are inconsistent.
-4. Run the import with `wp import --path=/path/to/wordpress/base/directory --url=https://url/for/blog/ /path/to/wp.xml --authors=create --user=sean --debug`
+2. Open `wp-config.php` in the WordPress network base directory and add
+   `define('ALLOW_UNFILTERED_UPLOADS', true);` to allow unfiltered uploads temporarily
+3. Edit `wordpress-importer.php` in `wp-content/plugins/wordpress-importer` within the WordPress root directory.
+   Comment out the block starting:
+`if ( isset( $headers['content-length'] ) && $filesize != $headers['content-length'] ) {`, down to the next `}` (about 4 lines). You can use `/*` and `*/` to do this. The reason for commenting out this code is because it causes failures
+  in the import script when the file sizes between source and destination servers are inconsistent - this seems to
+  affect text file attachments.
+4. Run the import with `wp import --path=/path/to/wordpress/base/directory --url=https://url/for/blog/ /path/to/wp.xml --authors=create --user=your-username --debug`, replacing `your-username` with the username of the network admin account
+  you created the WordPress network site with.
 5. Remove `define('ALLOW_UNFILTERED_UPLOADS', true);` from `wp-config.php`.
 6. Remove edits to `wordpress-importer`
 7. Rebuild cross-references:
