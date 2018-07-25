@@ -4,7 +4,7 @@ import logging
 import abc
 import datetime
 import hashlib
-import urllib
+import urllib.parse
 import re
 import shutil
 
@@ -185,11 +185,15 @@ class LotusPage(LotusObject):
         lines = []
 
         for element in elements:
+            if element.name == "a" and element.text == "top" and element.has_attr("href") and element["href"].endswith("#top"):
+                # skip link to top
+                continue
+
             self.parse_element(element)
             # add elements to document content
             lines.append(str(element))
 
-        self.content = "\n".join(lines)
+        self.content = "".join(lines)
     
     def parse_element(self, element):
         """Parse element"""
@@ -216,7 +220,7 @@ class LotusPage(LotusObject):
                 # replace this attached file
                 self.extract_attachment(element)
         # check for embedded images
-        elif element.name == "img" and element.has_attr("src") and "Body" in element["src"]:
+        elif element.name == "img" and element.has_attr("src"):
             # replace this embedded image
             self.extract_image(element)
 
@@ -237,7 +241,7 @@ class LotusPage(LotusObject):
         path = self.full_url_path(element["href"])
 
         try:
-            media = LotusMedia(path=path, archive_dir=self.archive_dir)
+            media = LotusMedia(created=self.created, path=path, archive_dir=self.archive_dir)
         except MediaInvalidException:
             # not attachment
             return
@@ -253,7 +257,7 @@ class LotusPage(LotusObject):
         path = self.full_url_path(element["src"])
 
         try:
-            media = LotusMedia(path=path, archive_dir=self.archive_dir)
+            media = LotusMedia(created=self.created, path=path, archive_dir=self.archive_dir)
         except MediaInvalidException:
             # not image
             return
@@ -277,6 +281,8 @@ class LotusPage(LotusObject):
 
     def archive(self):
         """Archive page"""
+
+        LOGGER.info("archiving page '%s' (%s)" % (self.title, self.path))
 
         # create XML tree
         page = etree.Element("page")
@@ -364,12 +370,15 @@ class LotusPage(LotusObject):
         return hash((self.title, self.page, frozenset(self.authors), frozenset(self.categories), self.created))
 
 class LotusMedia(LotusObject):
-    def __init__(self, *args, **kwargs):        
+    def __init__(self, created, *args, **kwargs):        
         # media data
         self.mime_type = None
 
         # archive path
         self._archive_path = None
+
+        # date
+        self.created = created
 
         # unique hash of file contents
         self._file_hash = None
@@ -414,8 +423,16 @@ class LotusMedia(LotusObject):
     def archive(self):
         """Archive media file"""
 
+        LOGGER.info("archiving media '%s' (%s)" % (self.file_hash, self.path))
+
         # copy file to archive
         shutil.copyfile(self.path, self.archive_path)
+
+        # modification timestamp, in seconds
+        mod_timestamp = round(self.created.timestamp())
+
+        # set modification and access times
+        os.utime(self.archive_path, times=(mod_timestamp, mod_timestamp))
 
     @property
     def archive_path(self):

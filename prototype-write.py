@@ -8,11 +8,16 @@ from lotus.parse import LotusParser
 # set up logger
 logging.basicConfig(level=logging.INFO)
 
-# scraped directory
-root_dir = "/home/sean/Workspace/pt/"
+## START EDITING
+
+# path to root directory of Lotus Notes scraped directory (the directory containing
+# `intranet.aei.uni-hannover.de`)
+root_dir = "/path/to/scraped/lotus/directory"
 
 # directory to archive scraped content
-archive_dir = os.path.join(root_dir, "archive")
+archive_dir = "/path/to/store/individual/xml/files"
+
+## STOP EDITING
 
 with working_directory(root_dir):
     parser = LotusParser(root_dir, archive_dir)

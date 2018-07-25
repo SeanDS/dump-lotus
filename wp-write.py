@@ -9,6 +9,34 @@ from lxml import etree
 from lotus.tools import (working_directory, WP_PUB_DATE_FORMAT, WP_POST_DATE_FORMAT,
                          WP_POST_DATE_GMT_FORMAT, sanitize_title)
 
+## START EDITING
+
+# directory containing archived XML files
+page_dir = "/path/to/archive/pages"
+media_dir = "/path/to/archive/pages/media"
+meta_dir = "/path/to/archive/meta"
+
+# file to write WordPress XML to
+wp_file = "/path/to/wp.xml"
+
+# site ID
+SITE_ID = 22
+
+# URL for main network site (the default site for a WordPress network installation), with trailing slash
+BASE_NETWORK_URL = "https://test.some-site.com/"
+
+# URL for blog (with trailing slash)
+BASE_URL = "https://test.some-site.com/tmp3/"
+
+# URL for directory containing all source media (WordPress will sideload media from this directory)
+# This can be any web-accessible directory
+BASE_SOURCE_MEDIA_URL = "https://example.com/path/to/media/"
+
+## STOP EDITING
+
+# destination media directory
+BASE_MEDIA_URL = BASE_URL + "wp-content/uploads/sites/" + str(SITE_ID) + "/"
+
 # post IDs added so far
 ADDED_POST_IDS = []
 
@@ -30,25 +58,6 @@ def unique_post_id():
 # set up logger
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger("lotus-parser")
-
-# directory containing archived XML files
-page_dir = "/home/sean/Workspace/pt/archive/pages"
-media_dir = "/home/sean/Workspace/pt/archive/pages/media"
-meta_dir = "/home/sean/Workspace/pt/archive/meta"
-
-# file to write WordPress XML to
-wp_file = "/home/sean/Workspace/pt/wp.xml"
-
-# site ID
-SITE_ID = 20
-
-# URL for site (with trailing slash)
-BASE_URL = "https://test.attackllama.com/tmp2/"
-BASE_NETWORK_URL = "https://test.attackllama.com/"
-BASE_MEDIA_URL = BASE_URL + "wp-content/uploads/sites/" + str(SITE_ID) + "/"
-
-# URL for directory containing all media
-BASE_SOURCE_MEDIA_URL = "https://cottage.attackllama.com/tmp/media/"
 
 # current time
 now = datetime.datetime.now(pytz.utc)
@@ -216,7 +225,9 @@ with working_directory(page_dir):
 
             # file data
             filestats = os.stat(attachment_path)
-            attachment_created = datetime.datetime.fromtimestamp(filestats.st_ctime)
+
+            # make the creation time the modification time, which is set to the file's original creation time
+            attachment_created = datetime.datetime.fromtimestamp(filestats.st_mtime)
 
             # create fake WordPress file path, to trick import to use the original modified date
             # YYYY/MM/filename.jpg
