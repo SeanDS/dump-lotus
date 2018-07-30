@@ -11,6 +11,9 @@ from lotus.tools import (working_directory, WP_PUB_DATE_FORMAT, WP_POST_DATE_FOR
 
 ## START EDITING
 
+# debug log file
+debug_log_file = "wp-write.log"
+
 # directory containing archived XML files
 page_dir = "/path/to/archive/pages"
 media_dir = "/path/to/archive/pages/media"
@@ -34,6 +37,23 @@ BASE_SOURCE_MEDIA_URL = "https://example.com/path/to/media/"
 
 ## STOP EDITING
 
+# delete the log file
+if os.path.exists(debug_log_file):
+    os.remove(debug_log_file)
+
+# set up loggers
+formatter = logging.Formatter("%(name)-25s - %(levelname)-8s - %(message)s")
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(formatter)
+stream_handler.setLevel(logging.INFO)
+file_handler = logging.FileHandler(debug_log_file)
+file_handler.setFormatter(formatter)
+file_handler.setLevel(logging.DEBUG)
+logger = logging.getLogger("lotus")
+logger.addHandler(stream_handler)
+logger.addHandler(file_handler)
+logger.setLevel(logging.DEBUG)
+
 # destination media directory
 BASE_MEDIA_URL = BASE_URL + "wp-content/uploads/sites/" + str(SITE_ID) + "/"
 
@@ -54,10 +74,6 @@ def unique_post_id():
     ADDED_POST_IDS.append(post_id)
 
     return post_id
-
-# set up logger
-logging.basicConfig(level=logging.INFO)
-LOGGER = logging.getLogger("lotus-parser")
 
 # current time
 now = datetime.datetime.now(pytz.utc)

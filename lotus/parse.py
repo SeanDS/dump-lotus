@@ -7,7 +7,7 @@ from lxml import etree
 from .objects import LotusPage
 from .exceptions import PageInvalidException
 
-LOGGER = logging.getLogger("lotus-parser")
+LOGGER = logging.getLogger("lotus")
 
 class LotusParser(object):
     """Parses Lotus Notes documents"""
@@ -34,6 +34,15 @@ class LotusParser(object):
     def find(self):
         """Parse documents under root path"""
 
+        # first pass: count files
+        count = 0
+        for _, dirs, files in os.walk('.'):
+            count += len(dirs)
+            count += len(files)
+
+        LOGGER.info("Found %i files" % count)
+
+        i = 1
         for (dirpath, _, filenames) in os.walk('.'):
             # remove symlinks
             dirpath = os.path.normpath(dirpath)
@@ -41,12 +50,15 @@ class LotusParser(object):
             LOGGER.debug("entering %s" % dirpath)
 
             for filename in filenames:
+                LOGGER.info("%i / %i: %s" % (i, count, filename))
                 # file path relative to root path
                 path = os.path.join(dirpath, filename)
 
                 # attempt to parse file
                 LOGGER.debug("parsing %s" % path)
                 self.parse(path)
+            
+                i += 1
     
     def parse(self, path):
         """Attempt to parse the specified file as a Lotus object"""
