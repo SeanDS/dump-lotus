@@ -29,6 +29,7 @@ if os.path.exists(archive_dir):
     shutil.rmtree(archive_dir)
 
 # create archive directory structure
+os.mkdir(archive_dir)
 os.mkdir(os.path.join(archive_dir, 'meta'))
 os.mkdir(os.path.join(archive_dir, 'pages'))
 os.mkdir(os.path.join(archive_dir, 'pages', 'media'))
