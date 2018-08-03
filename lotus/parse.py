@@ -50,9 +50,11 @@ class LotusParser(object):
             LOGGER.debug("entering %s" % dirpath)
 
             for filename in filenames:
-                LOGGER.info("%i / %i: %s" % (i, count, filename))
                 # file path relative to root path
                 path = os.path.join(dirpath, filename)
+
+                fullpath = os.path.join(os.getcwd(), path)
+                LOGGER.info("%i / %i: %s" % (i, count, fullpath))
 
                 # attempt to parse file
                 LOGGER.debug("parsing %s" % path)

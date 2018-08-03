@@ -8,6 +8,7 @@ import urllib.parse
 import re
 import shutil
 
+from binaryornot.check import is_binary
 from lxml import etree
 from bs4 import BeautifulSoup, UnicodeDammit
 import magic
@@ -88,8 +89,7 @@ class LotusPage(LotusObject):
         """Parse file at path as a page"""
 
         # check if file can be parsed
-        #if is_binary(self.path):
-        if not self.path.endswith(".html"):
+        if is_binary(self.path):
             raise PageInvalidException()
 
         with open(self.path, 'r') as obj:

@@ -3,6 +3,7 @@
 from setuptools import setup, find_packages
 
 REQUIREMENTS = [
+    "binaryornot",
     "lxml",
     "beautifulsoup4",
     "pytz",
