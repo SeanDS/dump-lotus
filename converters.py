@@ -77,8 +77,6 @@ def xml_to_wp_xml(archive_dir, wp_file, site_id, base_network_url, base_url, bas
     media_dir = os.path.join(page_dir, "media")
     meta_dir = os.path.join(archive_dir, "meta")
 
-    ## STOP EDITING
-
     # delete the log file
     if os.path.exists(debug_log_file):
         os.remove(debug_log_file)
@@ -192,7 +190,7 @@ def xml_to_wp_xml(archive_dir, wp_file, site_id, base_network_url, base_url, bas
             wp_coauthor = etree.SubElement(channel, "{http://wordpress.org/export/1.2/}term")
             etree.SubElement(wp_coauthor, "{http://wordpress.org/export/1.2/}term_id").text = etree.CDATA(str(next_term_id))
             etree.SubElement(wp_coauthor, "{http://wordpress.org/export/1.2/}term_taxonomy").text = etree.CDATA("ssl_alp_coauthor")
-            etree.SubElement(wp_coauthor, "{http://wordpress.org/export/1.2/}term_slug").text = etree.CDATA(author_slug)
+            etree.SubElement(wp_coauthor, "{http://wordpress.org/export/1.2/}term_slug").text = etree.CDATA(author_term_name(author_slug))
             etree.SubElement(wp_coauthor, "{http://wordpress.org/export/1.2/}term_parent").text = etree.CDATA("")
             etree.SubElement(wp_coauthor, "{http://wordpress.org/export/1.2/}term_name").text = etree.CDATA(author_name)
 
@@ -253,7 +251,7 @@ def xml_to_wp_xml(archive_dir, wp_file, site_id, base_network_url, base_url, bas
             # coauthors
             for author in page.find("authors"):
                 author_name = author.text
-                author_nicename = sanitize_title(author_name)
+                author_nicename = author_term_name(author_name)
                 etree.SubElement(item, "category", domain="ssl_alp_coauthor", nicename=author_nicename).text = etree.CDATA(author_name)
 
             # replace cross references with proper URL
@@ -473,3 +471,6 @@ def xml_to_wp_xml(archive_dir, wp_file, site_id, base_network_url, base_url, bas
     with open(wp_file, "wb") as f:
         tree = etree.ElementTree(rss)
         tree.write(f, pretty_print=True)
+
+def author_term_name(author_name):
+    return "ssl-alp-coauthor-" + author_name

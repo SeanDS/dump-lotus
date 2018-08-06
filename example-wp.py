@@ -18,3 +18,10 @@ base_url = "https://test.some-site.com/tmp3/"
 # URL for directory containing all source media (WordPress will sideload media from this directory)
 # This can be any web-accessible directory
 base_source_media_url = "https://example.com/path/to/media/"
+
+# Path to write logs to. Set to None for no logs.
+debug_log_file = "wp.log"
+
+if __name__ == "__main__":
+    xml_to_wp_xml(archive_dir, wp_file, site_id, base_network_url, base_url, base_source_media_url,
+                  debug_log_file)
