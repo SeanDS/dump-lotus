@@ -328,7 +328,7 @@ def xml_to_wp_xml(archive_dir, wp_file, site_id, base_network_url, base_url, bas
                 # description
                 etree.SubElement(attachment_item, "description").text = etree.CDATA("")
                 # content
-                etree.SubElement(attachment_item, "{http://purl.org/rss/1.0/modules/content/}encoded").text = etree.CDATA(media_url)
+                etree.SubElement(attachment_item, "{http://purl.org/rss/1.0/modules/content/}encoded").text = etree.CDATA("")
                 # excerpt
                 etree.SubElement(attachment_item, "{http://wordpress.org/export/1.2/excerpt/}encoded").text = etree.CDATA("")
                 # post id
@@ -409,7 +409,7 @@ def xml_to_wp_xml(archive_dir, wp_file, site_id, base_network_url, base_url, bas
                 # description
                 etree.SubElement(image_item, "description").text = etree.CDATA("")
                 # content
-                etree.SubElement(image_item, "{http://purl.org/rss/1.0/modules/content/}encoded").text = etree.CDATA(media_url)
+                etree.SubElement(image_item, "{http://purl.org/rss/1.0/modules/content/}encoded").text = etree.CDATA("")
                 # excerpt
                 etree.SubElement(image_item, "{http://wordpress.org/export/1.2/excerpt/}encoded").text = etree.CDATA("")
                 # post id
