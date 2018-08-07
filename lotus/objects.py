@@ -113,7 +113,7 @@ class LotusPage(LotusObject):
 
         # check description reads "Logbook Entry"
         if description is None:
-            raise PageInvalidException("countn't find logbook description field")
+            raise PageInvalidException("couldn't find logbook description field")
         elif description != "Logbook Entry":
             raise PageInvalidException("document description doesn't read \"Logbook Entry\"")
 
@@ -323,6 +323,10 @@ class LotusPage(LotusObject):
         urls = etree.SubElement(page, "urls")
 
         for unique_hash, other_page in self.urls.items():
+            if other_page is None:
+                # skip not found page
+                continue
+
             etree.SubElement(urls, "url", path=other_page.archive_path).text = unique_hash
 
         # save pretty version
@@ -367,7 +371,7 @@ class LotusPage(LotusObject):
         return hash(self) == hash(other)
     
     def __hash__(self):
-        return hash((self.title, self.page, frozenset(self.authors), frozenset(self.categories), self.created))
+        return hash((self.title, frozenset(self.authors), frozenset(self.categories), str(self.created)))
 
 class LotusMedia(LotusObject):
     def __init__(self, created, *args, **kwargs):        

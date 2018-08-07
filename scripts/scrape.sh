@@ -10,7 +10,6 @@ wget \
     --load-cookies=cookies.txt \
     --mirror \
     --page-requisites \
-    --html-extension \
     --convert-links \
     --domains my.domain.com \
     --no-parent \

@@ -36,8 +36,7 @@ class LotusParser(object):
 
         # first pass: count files
         count = 0
-        for _, dirs, files in os.walk('.'):
-            count += len(dirs)
+        for _, _, files in os.walk('.'):
             count += len(files)
 
         LOGGER.info("Found %i files" % count)
@@ -78,13 +77,19 @@ class LotusParser(object):
                 LOGGER.info("path %s is a duplicate of %s" % (page.path, original.path))
             else:
                 self.pages.append(page)
+
+                original = page
             
             # map target path
-            self.page_paths[page.path] = page
+            LOGGER.debug("mapping %s to %s" % (page.path, original))
+            self.page_paths[page.path] = original
 
             return
         except PageInvalidException:
             # not a page
+            # NOTE: this also catches responses, so in the future if these are
+            # to be dealt with, modify what constitutes a valid page
+            LOGGER.debug("%s is not a valid page" % path)
             pass
 
     def archive(self):
@@ -94,10 +99,17 @@ class LotusParser(object):
         media_files = {}
 
         for page in self.pages:
+            LOGGER.debug("archiving %s" % page)
+
             # map page paths to objects
             for unique_hash, path in page.urls.items():
                 # replace path with object
-                page.urls[unique_hash] = self.page_paths[path]
+                try:
+                    page.urls[unique_hash] = self.page_paths[path]
+                except KeyError:
+                    # the key wasn't found - possibly invalid URL,
+                    # possibly a response
+                    page.urls[unique_hash] = None
 
             # map attachment paths to objects
             for unique_hash, attachment in page.attachments.items():

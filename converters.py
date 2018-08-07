@@ -61,10 +61,8 @@ def lotus_to_xml(root_dir, archive_dir, debug_log_file=None):
         """
 
         for page in parser.pages:
-            # path is whatever wget saved, but without ".html" extension, and with the root path
-            # removed and protocol added
-            # warning: don't use rstrip as this matches characters in any order
-            original_url = "https://" + page.path[:-5]
+            # path is whatever wget saved, plus the root path, with protocol
+            original_url = "https://" + page.path
             page.content =  message % (original_url, page.content)
 
         # save everything into files
