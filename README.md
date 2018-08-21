@@ -118,32 +118,52 @@ Extra notes:
 4. Run the import with `wp import --path=/path/to/wordpress/base/directory --url=https://url/for/blog/ /path/to/wp.xml --authors=create --user=your-username --debug`, replacing `your-username` with the username of the network admin account
   you created the WordPress network site with.
 5. Remove `define('ALLOW_UNFILTERED_UPLOADS', true);` from `wp-config.php`.
-6. Remove edits to `wordpress-importer`
-7. Rebuild cross-references:
+6. Remove edits to `wordpress-importer`.
+7. Rebuild cross-references and term counts:
   - Open an interactive PHP shell by running `wp shell --path=/path/to/wp/installation --url=https://example.com/blog-name/ --debug`
-  - Type `global $ssl_alp;`
-  - Type `$ssl_alp->references->rebuild_references();`
+  - Type `global $ssl_alp;` then enter
+  - Type `$ssl_alp->references->rebuild_references();` then enter
   - Wait until complete (will take many minutes). Upon completion the command will return `NULL`.
-8. Rebuild term counts: `wp term recount ssl_alp_coauthor --path=/path/to/wp/installation --url=https://example.com/blog-name/`
-9. Disable the WordPress Importer plugin.
-10. Delete the media hosted on the temporary URL (WordPress has now copied this to its own directory).
+  - Type: `wp term recount ssl_alp_coauthor --path=/path/to/wp/installation --url=https://example.com/blog-name/`
+    then enter
+  - Wait until complete. This shouldn't take long.
+8. Disable the WordPress Importer plugin.
+9. Delete the media hosted on the temporary URL (WordPress has now copied this to its own directory).
 
 ## Users
-Lotus Notes users are created by the import script but not automatically added to the blog. You **must**
-add every user to the blog using the WordPress network admin screen, otherwise the author list on the blog
-will not be complete and it will not be possible to merge the imported Lotus Notes users with WordPress
-accounts.
+Users are created by the import script, but these users are only present on each blog (e.g. prototype).
+For users that are members of many sites, it is desirable to merge the various users created across
+the network into one user.
 
-### Adding users to the blog
-Once the site is imported, you probably want to merge the users created by the import script with real network
-users. This must be done from the WordPress network admin screen.
+Manual method for users without many posts:
 
-1. Add all users that exist in the Lotus Notes logbook to the new blog (using the network admin). Skip sending
-   the confirmation email otherwise the user will not be added until they click a link in their email.
-2. Add all WordPress users that will have the Lotus Notes users merged to the blog too.
-3. Use the network admin page to individually merge the Lotus Notes account into its corresponding WordPress
-   acount. This is done by clicking "Delete" under the Lotus Notes user account on the network admin user list,
-   then choosing to attribute their posts to the target WordPress user.
+1. Ensure the account you wish to use for the person is present *on the network admin user screen*.
+   This means you should either:
+    - Pick an existing network account to use,
+    - Create a new network user account,
+    - Or use e.g. an LDAP plugin to create an authenticated user.
+   The account *must* exist, and *must* be a *network* user (i.e. present on the network user page)
+   before proceeding. This account is referred to as the "master" account.
+2. Add the master account to a blog where the person has posts, by going to the blog's user admin
+   page and using "Add existing user" to find and add the master account.
+3. From the *network admin user screen*, find the *blog user account* created by the import process
+   that is to have its posts merged into the master account, and click "Delete".
+4. On the next page, you will be asked "What should be done with the content owned by [xxx]?". Under
+   the site, you should select "Attribute all content to" and choose the master account created
+   above.
+5. Click "Confirm Deletion". This will take a long time (many minutes) for users with lots of posts.
+
+Alternatively, the process can be achieved with wP-CLI, which is better for users with many posts
+where there is a risk the HTTP request might timeout. This must be done in two parts as WP-CLI
+does not allow users to be deleted from the network with their posts reassigned at the same time.
+
+1. Follow steps 1 and 2 above.
+2. Look up the user ID of the master user, e.g. by hovering over the user URL in the network user
+   list.
+3. In a terminal on the web server, run `wp user delete [username] --reassign=[master-user-id] --url=https://example.com/blog-name/`
+   and press enter. This will reassign the posts of `[username]` on the blog to the master user.
+4. Delete the now unused blog user from the whole network by running `wp user delete [username] --network`.
+   You will be asked for confirmation; type "y" for yes.
 
 ## Lotus Notes quirks
 Some Lotus Notes quirks that must be kept in mind by the user:
@@ -161,5 +181,5 @@ And some consequences for the parser:
     and only one copy will be saved.
 
 ## Credits
-Sean Leavey  
+Sean Leavey
 <github@attackllama.com>
