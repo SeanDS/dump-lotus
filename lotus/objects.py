@@ -169,7 +169,8 @@ class LotusPage(LotusObject):
         # NOTE: not necessarily integer!
         self.page = page_number_field.next_sibling.text
 
-        # ignore created/modified dates as these are not fully qualified (get date elsewhere)
+        # grab time out of "Created" field (but not used for date as this is not fully qualified)
+        time_str = page_number_field.next_sibling.next_sibling.next_sibling.next_sibling.next_sibling.text
 
         # second column contains title, author, categories and date
         second_column = first_column.next_sibling
@@ -193,10 +194,14 @@ class LotusPage(LotusObject):
         self.categories = [category.strip() for category in categories.split(",") if category != ""]
 
         # diary date
-        date_str = font_tags[7].text
+        date_str = font_tags[7].text # "Diary date"
+
+        # time, without date part
+        time_str = time_str.split()
+        time_str = " ".join(time_str[1:])
 
         # parse date
-        date_obj = datetime.datetime.strptime(date_str, "%m/%d/%Y")
+        date_obj = datetime.datetime.strptime(date_str + " " + time_str, "%m/%d/%Y %I:%M %p")
 
         # set its timezone
         date_obj.replace(tzinfo=self.timezone)

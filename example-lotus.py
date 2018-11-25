@@ -1,3 +1,4 @@
+from pytz import timezone
 from lotus.search import LotusXMLBuilder
 
 # Path to root directory of Lotus Notes scraped site. Set this to the
@@ -16,5 +17,6 @@ archive_dir = "/path/to/store/individual/xml/files"
 debug_log_file = "lotus.log"
 
 if __name__ == "__main__":
-    builder = LotusXMLBuilder(root_dir, root_contents_page, archive_dir, debug_log_file=debug_log_file)
+    builder = LotusXMLBuilder(root_dir, root_contents_page, archive_dir,
+                              debug_log_file=debug_log_file, timezone=timezone("Europe/Berlin"))
     builder.dump()
