@@ -1,3 +1,5 @@
+"""Lotus Notes XML generator script."""
+
 from pytz import timezone
 from lotus.search import LotusXMLBuilder
 

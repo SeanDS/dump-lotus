@@ -1,3 +1,5 @@
+"""WordPress XML generator script."""
+
 import os
 from lotus.wp import WordPressXMLWriter
 

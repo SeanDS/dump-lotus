@@ -43,10 +43,6 @@ requires some files on the web server to be edited.
     used by `scrape.sh`, updates these to point to local copies. Non-ASCII text may not be displayed
     correctly by the browser due to the documents' lack of character encoding settings, but the
     underlying HTML files should be properly formatted if viewed in UTF-8 mode.
-3. (Optional) Delete files with names beginning `Contents` and `Outline Page`.
-  - These are matched by the scraper because they link to relevant posts.
-  - They are not required for the Python parser, and since each file can be many megabytes of HTML,
-    they slow down the parsing operation.
 
 Extra notes:
   - The Lotus Notes web client does not correctly display content given its character encoding. Some
@@ -68,70 +64,89 @@ Extra notes:
   - Lotus Notes also does not strip out invisible, invalid or control characters entered into it. If
     someone has copy-and-pasted text from e.g. Microsoft Word into Lotus Notes, it may contain junk
     characters which are invalid. These cause the XML parser to throw an error. If you get an error when
-    running `prototype-write.py`, you must edit the file that contained the error and remove the junk
+    running a script derived from `example-lotus.py`, you must edit the file that contained the error and remove the junk
     characters manually.
 
 ## Creating WordPress site
 1. Create a new blog for the posts to be imported into on the WordPress Network admin screen.
 2. Activate the [Academic Labbook Plugin](https://alp.attackllama.com/) on
    the network admin plugins page.
-3. Activate the `Alpine` theme on the network admin themes page.
-4. Change the theme on the target blog appearance page to `Alpine`.
-5. Install the "Wordpress Importer" plugin using the WordPress network admin plugin screen. This is
+3. Upload and activate the `Alpine` theme on the network admin themes page.
+4. Go to the Academic Labbook Plugin tools page for the target blog and run:
+   - "Change Settings"
+   - "Convert User Roles"
+5. Also change the theme on the target blog's admin area to `Alpine`.
+6. Install the "Wordpress Importer" plugin using the WordPress network admin plugin screen. This is
    published by "wordpressdotorg".
-6. (Optional) Delete the default post and comment on the target blog.
+7. (Optional) Delete the default post and comment on the target blog.
+8. Install `WP-CLI` on the web server. Some commands later in this guide require it.
 
 ## Setting up Python project
-1. Run `setup.py` in this directory to install the dependencies, either directly with Python or via pip,
-   e.g.: `pip3 install --user -e .`
+1. The `setup.py` file in this directory installs the required dependencies, either directly with Python or via `pip`, e.g. with `pip3 install -e .`.
 
 ## Building XML files
-1. Create empty directories with the following structure:
-  - /meta
-  - /pages
-  - /pages/media
-2. Edit `prototype-write.py`, setting the paths to the above directories, and setting the URL where the
-   media will be hosted temporarily.
-3. Run `prototype-write.py`.
+1. Copy `example-lotus.py.dist` to another location, e.g. `prototype-lotus.py`.
+2. Edit `prototype-lotus.py`, setting the relevant paths as specified by the comments in the file,
+   including the path to the scraped data above.
+3. Run `prototype-write.py` with Python 3: `python3 prototype-lotus.py`.
+
+The script will generate individual XML files for each post and its responses and media, deduplicate
+downloaded pages, and replace URLs to pages to local files instead.
 
 ## Building WordPress import XML file
-1. Edit `wp-write.py`, setting the paths to the archive directories set above. Also set the SITE_ID of the
-   WordPress site you wish to import to - this can be found in the Network Admin Sites screen by hovering over
-   the link for the relevant site. The site ID is the number at the end, after "?id=".
-   You must also specify a web URL which points to a directory containing all of the media created by
-   `prototype-write.py`. This is accessed by WordPress during the import process, so it needs to be a URL
-   accessible to the server on which WordPress is running (it can be on the same server).
-2. Run `wp-write.py`.
+1. Copy `example-wp.py.dist` to another location, e.g. `prototype-wp.py`.
+2. Edit `prototype-wp.py`, setting the paths to the archive directories set above. You must also
+   set site id of the WordPress site you wish to import to (the one you created above) - this number
+   can be found in the Network Admin Sites screen by hovering over the link for the relevant site.
+   The site ID is the number at the end, after "?id=".
+   You must also specify a web URL which points to a web-accessible directory containing all of
+   the media created by `prototype-lotus.py`. That means you either have to copy the contents of
+   `archive/pages/media` to a web server, or allow web access to this directory on your machine. This directory is accessed by WordPress during the import process, so it needs to be accessible to the
+   server on which WordPress is running (it can be on the same server). Note that if this is not
+   correctly set up, the importer will not fail, but will not import the media properly - so be
+   careful.
+2. Run `prototype-wp.py` with Python 3: `python3 prototype-wp.py`.
+
+This script will generate a single WordPress XML file which contains the whole site data. This will
+next be imported into WordPress.
 
 ## Moving the media to a web directory
-1. Move the media produced in the media directory defined above to the temporary media URL directory.
+1. If you have not done so alread, move the media produced in the media directory defined above to
+   the temporary media URL directory as specified in `prototype-wp.py`.
 
 ## Importing XML file into WordPress
-1. Activate the WordPress Importer plugin with `wp plugin activate wordpress-importer --path=/path/to/wordpress/base/directory --url=https://url/for/blog/`.
-2. Open `wp-config.php` in the WordPress network base directory and add
-   `define('ALLOW_UNFILTERED_UPLOADS', true);` to allow unfiltered uploads temporarily
-3. Edit `wordpress-importer.php` in `wp-content/plugins/wordpress-importer` within the WordPress root directory.
-   Comment out the block starting:
+1. Activate the WordPress Importer plugin on the target site with `wp plugin activate wordpress-importer --path=/path/to/wordpress/base/directory --url=https://url/for/blog/`.
+2. Open `wp-config.php` in the WordPress installation directory and add
+   `define('ALLOW_UNFILTERED_UPLOADS', true);` to allow unfiltered uploads temporarily.
+3. Edit `wordpress-importer.php` in `wp-content/plugins/wordpress-importer` within the WordPress root directory. Comment out the block starting:
 `if ( isset( $headers['content-length'] ) && $filesize != $headers['content-length'] ) {`, down to the next `}` (about 4 lines). You can use `/*` and `*/` to do this. The reason for commenting out this code is because it causes failures
   in the import script when the file sizes between source and destination servers are inconsistent - this seems to
   affect text file attachments.
-4. Run the import with `wp import --path=/path/to/wordpress/base/directory --url=https://url/for/blog/ /path/to/wp.xml --authors=create --user=your-username --debug`, replacing `your-username` with the username of the network admin account
-  you created the WordPress network site with.
+4. Run the import with `sudo -u www-data bash -c 'wp import --path=/path/to/wordpress/base/directory --url=https://url/for/blog/ /path/to/wp.xml --authors=create --user=your-username --debug'`, replacing
+   `www-data` with the name of the web server user and `your-username` with the username of the
+   network admin account you created the WordPress network site with. This runs the import as the
+   web user, which is necessary to avoid potential issues with file and directory permissions.
+   The command will take a long time to run on big sites. For some unknown reasons, it also sometimes
+   stops the import mid-way through, and appears to be finished when it actually is not. In this case,
+   simply rerun the command - it will skip over the posts it has already imported. Close to the end,
+   the command goes blank and appears to have frozen, and this can last many minutes or even hours.
+   The importer is recounting items in the database and should not be interrupted. Once the command
+   finishes you can move on.
 5. Remove `define('ALLOW_UNFILTERED_UPLOADS', true);` from `wp-config.php`.
 6. Remove edits to `wordpress-importer`.
 7. Rebuild cross-references and term counts:
-  - Open an interactive PHP shell by running `wp shell --path=/path/to/wp/installation --url=https://example.com/blog-name/ --debug`
+  - Open an interactive PHP shell by running `sudo -u www-data bash -c 'wp shell --path=/path/to/wp/installation --url=https://example.com/blog-name/ --debug'`
   - Type `global $ssl_alp;` then enter
   - Type `$ssl_alp->references->rebuild_references();` then enter
   - Wait until complete (will take many minutes). Upon completion the command will return `NULL`.
-  - Type: `wp term recount ssl_alp_coauthor --path=/path/to/wp/installation --url=https://example.com/blog-name/`
-    then enter
+  - Exit the shell with `exit`.
+  - Type: `sudo -u www-data bash -c 'wp term recount ssl_alp_coauthor --path=/path/to/wp/installation --url=https://example.com/blog-name/'` to recount coauthor posts.
   - Wait until complete. This shouldn't take long.
 8. Disable the WordPress Importer plugin.
 9. Delete the media hosted on the temporary URL (WordPress has now copied this to its own directory).
 
 ## Users
-Users are created by the import script, but these users are only present on each blog (e.g. prototype).
+Users are created by the import script, but these users are only added to each blog (e.g. prototype).
 For users that are members of many sites, it is desirable to merge the various users created across
 the network into one user.
 
@@ -153,7 +168,7 @@ Manual method for users without many posts:
    above.
 5. Click "Confirm Deletion". This will take a long time (many minutes) for users with lots of posts.
 
-Alternatively, the process can be achieved with wP-CLI, which is better for users with many posts
+Alternatively, the process can be achieved with WP-CLI, which is better for users with many posts
 where there is a risk the HTTP request might timeout. This must be done in two parts as WP-CLI
 does not allow users to be deleted from the network with their posts reassigned at the same time.
 
@@ -164,21 +179,6 @@ does not allow users to be deleted from the network with their posts reassigned 
    and press enter. This will reassign the posts of `[username]` on the blog to the master user.
 4. Delete the now unused blog user from the whole network by running `wp user delete [username] --network`.
    You will be asked for confirmation; type "y" for yes.
-
-## Lotus Notes quirks
-Some Lotus Notes quirks that must be kept in mind by the user:
-  - Page numbers are not unique. Different documents can happily have the same page numbers.
-  - Page numbers aren't necessarily integer. Numbers like `123.5` are allowed, so don't assume they are
-    integer.
-  - Links between one page and another, and between pages and attached/embedded media, are not necessarily
-    uniquely defined for each file. The same file (page, attachment, etc.) can have different URLs. The
-    parser de-duplicates these and maintains lists of aliases.
-
-And some consequences for the parser:
-  - Page numbers are stored as strings
-  - Pages are considered unique by a function of their title, page number, authors, categories and creation
-    date. If two pages have these exact values, but different content, they will be considered the same
-    and only one copy will be saved.
 
 ## Credits
 Sean Leavey
