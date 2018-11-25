@@ -17,4 +17,4 @@ wget \
     --reject-regex='^.*\/(([\/a-z\d]+(\?Navigate|\?OpenDocument&Click))|(By|\(\$All\))).*' \
     --regex-type=pcre \
     --restrict-file-names=nocontrol \
-    my.domain.com/backup/my-notes-application.nsf
+    "my.domain.com/backup/my-notes-application.nsf/By Diary Date?OpenView.html"

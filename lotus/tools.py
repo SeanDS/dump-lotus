@@ -2,10 +2,6 @@ import os
 import contextlib
 import re
 
-WP_PUB_DATE_FORMAT = r"%a, %d %b %Y %H:%M:%S %z"
-WP_POST_DATE_FORMAT = r"%Y-%m-%d %H:%M:%S"
-WP_POST_DATE_GMT_FORMAT = r"%Y-%m-%d %H:%M:%S"
-
 @contextlib.contextmanager
 def working_directory(path):
     # previous directory
