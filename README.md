@@ -143,7 +143,10 @@ next be imported into WordPress.
   - Type: `sudo -u www-data bash -c 'wp term recount ssl_alp_coauthor --path=/path/to/wp/installation --url=https://example.com/blog-name/'` to recount coauthor posts.
   - Wait until complete. This shouldn't take long.
 8. Disable the WordPress Importer plugin.
-9. Delete the media hosted on the temporary URL (WordPress has now copied this to its own directory).
+9. Install the [Update Comments Count](https://wordpress.org/plugins/update-comments-count/) plugin
+   and run the tool to update the comments. For some reason, comment counts are usually wrong after
+   the import. This tool only needs to be run once, and the plugin can be deleted afterwards.
+10. Delete the media hosted on the temporary URL (WordPress has now copied this to its own directory).
 
 ## Users
 Users are created by the import script, but these users are only added to each blog (e.g. prototype).
