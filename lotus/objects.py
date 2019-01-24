@@ -246,9 +246,6 @@ class LotusPage(LotusObject):
         # check for cross-referencing links
         if element.name == "a" and element.has_attr("href"):
             if element["href"].endswith("OpenDocument"):
-                # URL on the scraped domain but not scraped
-                LOGGER.warning("cross-referenced URL not matched: %s", element["href"])
-            elif element["href"].endswith("OpenDocument.html"):
                 # replace this internal link
                 self.extract_cross_reference(element)
             elif "$FILE" in element["href"]:
