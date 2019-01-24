@@ -7,6 +7,7 @@ import hashlib
 import urllib.parse
 import re
 import shutil
+import pytz
 
 from binaryornot.check import is_binary
 from lxml import etree
@@ -19,6 +20,7 @@ LOGGER = logging.getLogger("lotus")
 
 def path_hash(path):
     return hashlib.md5(path.encode('utf-8')).hexdigest()
+
 
 class LotusObject(object, metaclass=abc.ABCMeta):
     def __init__(self, path, archive_dir):
@@ -64,10 +66,24 @@ class LotusObject(object, metaclass=abc.ABCMeta):
     def __repr__(self):
         return str(self)
 
+
 class LotusPage(LotusObject):
-    def __init__(self, timezone, parser, *args, **kwargs):
+    def __init__(self, *args, timezone=None, parser=None, response_paths=None, **kwargs):
+        if timezone is None:
+            # assume UTC
+            timezone = pytz.UTC
+        
+        if parser is None:
+            parser = "html.parser"
+
         self.timezone = timezone
         self.parser = parser
+        
+        if response_paths is None:
+            response_paths = []
+        
+        self.response_paths = list(response_paths)
+        self.response_pages = []
 
         # page content
         self.title = None
@@ -82,8 +98,8 @@ class LotusPage(LotusObject):
 
         # fields
         self._hash_filename = None
-    
-        super(LotusPage, self).__init__(*args, **kwargs)
+
+        super().__init__(*args, **kwargs)
 
     def parse(self):
         """Parse file at path as a page"""
@@ -126,6 +142,17 @@ class LotusPage(LotusObject):
         # this is anything after the table
         self.parse_content(meta_table.next_siblings)
 
+        # parse responses
+        for response_path in self.response_paths:
+            response = self.__class__(response_path, self.base_archive_dir, timezone=self.timezone,
+                                      parser=self.parser)
+            self.response_pages.append(response)
+
+            # add data to parent
+            self.images = {**response.images, **self.images}
+            self.attachments = {**response.attachments, **self.attachments}
+            self.urls = {**response.urls, **self.urls}
+
     def parse_table_meta(self, table):
         if table is None:
             raise PageInvalidException("invalid table tag")
@@ -142,7 +169,8 @@ class LotusPage(LotusObject):
         # NOTE: not necessarily integer!
         self.page = page_number_field.next_sibling.text
 
-        # ignore created/modified dates as these are not fully qualified (get date elsewhere)
+        # grab time out of "Created" field (but not used for date as this is not fully qualified)
+        time_str = page_number_field.next_sibling.next_sibling.next_sibling.next_sibling.next_sibling.text
 
         # second column contains title, author, categories and date
         second_column = first_column.next_sibling
@@ -166,10 +194,14 @@ class LotusPage(LotusObject):
         self.categories = [category.strip() for category in categories.split(",") if category != ""]
 
         # diary date
-        date_str = font_tags[7].text
+        date_str = font_tags[7].text # "Diary date"
+
+        # time, without date part
+        time_str = time_str.split()
+        time_str = " ".join(time_str[1:])
 
         # parse date
-        date_obj = datetime.datetime.strptime(date_str, "%m/%d/%Y")
+        date_obj = datetime.datetime.strptime(date_str + " " + time_str, "%m/%d/%Y %I:%M %p")
 
         # set its timezone
         date_obj.replace(tzinfo=self.timezone)
@@ -214,6 +246,9 @@ class LotusPage(LotusObject):
         # check for cross-referencing links
         if element.name == "a" and element.has_attr("href"):
             if element["href"].endswith("OpenDocument"):
+                # URL on the scraped domain but not scraped
+                LOGGER.warning("cross-referenced URL not matched: %s", element["href"])
+            elif element["href"].endswith("OpenDocument.html"):
                 # replace this internal link
                 self.extract_cross_reference(element)
             elif "$FILE" in element["href"]:
@@ -249,7 +284,7 @@ class LotusPage(LotusObject):
         # replace URL with unique ID
         element["href"] = media.file_hash
 
-        LOGGER.info("found attachment %s" % media)
+        LOGGER.debug("found attachment %s" % media)
         self.attachments[media.file_hash] = media
 
     def extract_image(self, element):
@@ -265,7 +300,7 @@ class LotusPage(LotusObject):
         # replace URL with unique ID
         element["src"] = media.file_hash
 
-        LOGGER.info("found image %s" % media)
+        LOGGER.debug("found image %s" % media)
         self.images[media.file_hash] = media
 
     def full_url_path(self, path):
@@ -290,18 +325,22 @@ class LotusPage(LotusObject):
         # add metadata
         etree.SubElement(page, "title").text = etree.CDATA(self.title)
         etree.SubElement(page, "page").text = etree.CDATA(self.page)
-        etree.SubElement(page, "created").text = str(self.created.timestamp())
+        etree.SubElement(page, "created").text = str(round(self.created.timestamp()))
 
         # add authors
         authors = etree.SubElement(page, "authors")
 
         for author in self.authors:
+            # decode entities
+            author = urllib.parse.unquote(author)
             etree.SubElement(authors, "author").text = etree.CDATA(author)
 
         # add categories
         categories = etree.SubElement(page, "categories")
 
         for category in self.categories:
+            # decode entities
+            category = urllib.parse.unquote(category)
             etree.SubElement(categories, "category").text = etree.CDATA(category)
 
         # add encoded content
@@ -329,9 +368,29 @@ class LotusPage(LotusObject):
 
             etree.SubElement(urls, "url", path=other_page.archive_path).text = unique_hash
 
+        # add responses
+        responses = etree.SubElement(page, "responses")
+
+        for response_page in self.response_pages:
+            response = etree.SubElement(responses, "response")
+
+            # add metadata
+            etree.SubElement(response, "created").text = str(round(response_page.created.timestamp()))
+
+            # add authors
+            response_authors = etree.SubElement(response, "authors")
+
+            for author in response_page.authors:
+                etree.SubElement(response_authors, "author").text = etree.CDATA(author)
+
+            # add encoded content
+            etree.SubElement(response, "content").text = etree.CDATA(response_page.content)
+
         # save pretty version
         tree = etree.ElementTree(page)
         tree.write(self.archive_path, encoding="utf-8", xml_declaration=True)
+
+        LOGGER.debug("wrote page '%s' to %s", self.title, self.archive_path)
 
     @property
     def archive_path(self):
@@ -357,8 +416,8 @@ class LotusPage(LotusObject):
 
     @property
     def media(self):
-        yield from self.attachments.values()
-        yield from self.images.values()
+        yield from self.attachments
+        yield from self.images
 
     def __str__(self):
         return self.title
@@ -372,6 +431,7 @@ class LotusPage(LotusObject):
     
     def __hash__(self):
         return hash((self.title, frozenset(self.authors), frozenset(self.categories), str(self.created)))
+
 
 class LotusMedia(LotusObject):
     def __init__(self, created, *args, **kwargs):        
