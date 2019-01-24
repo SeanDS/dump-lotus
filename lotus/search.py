@@ -115,7 +115,7 @@ class LotusXMLBuilder:
             root_contents_pages = glob.glob(self.root_contents_wildcard)
             total_contents_pages = len(root_contents_pages)
 
-            for j, contents_page in enumerate(root_contents_pages):
+            for j, contents_page in enumerate(root_contents_pages, start=1):
                 self.logger.info("Reading contents page %i/%i", j, total_contents_pages)
 
                 with open(contents_page, "r") as obj:
