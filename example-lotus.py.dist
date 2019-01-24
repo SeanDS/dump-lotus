@@ -7,8 +7,9 @@ from lotus.search import LotusXMLBuilder
 # directory of the logbook you want to convert.
 root_dir = "/path/to/scraped/lotus/directory"
 
-# Filename of the contents page contained within root_dir.
-root_contents_page = "By Diary Date?OpenView.html"
+# Pattern to use to search for contents pages contained within root_dir.
+# This should use an accepted glob format (https://docs.python.org/3/library/glob.html).
+root_contents_wildcard = "**/By Author?OpenView&Start=1&Count=5000*"
 
 # Directory to archive scraped content. This will be filled with
 # individual XML files representing each of the logbook pages.
@@ -19,6 +20,6 @@ archive_dir = "/path/to/store/individual/xml/files"
 debug_log_file = "lotus.log"
 
 if __name__ == "__main__":
-    builder = LotusXMLBuilder(root_dir, root_contents_page, archive_dir,
+    builder = LotusXMLBuilder(root_dir, root_contents_wildcard, archive_dir,
                               debug_log_file=debug_log_file, timezone=timezone("Europe/Berlin"))
     builder.dump()

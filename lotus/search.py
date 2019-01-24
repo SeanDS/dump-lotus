@@ -12,10 +12,10 @@ from .objects import LotusPage
 
 
 class LotusXMLBuilder:
-    def __init__(self, root_dir, root_contents_page, archive_dir, timezone=None, parser=None,
+    def __init__(self, root_dir, root_contents_wildcard, archive_dir, timezone=None, parser="lxml",
                  debug_log_file=None):        
         self.root_dir = root_dir
-        self.root_contents_page = os.path.join(self.root_dir, root_contents_page)
+        self.root_contents_wildcard = root_contents_wildcard
         self.archive_dir = archive_dir
         self.timezone = timezone
         self.parser = parser
@@ -99,53 +99,72 @@ class LotusXMLBuilder:
     @property
     def _documents_relative_to_contents(self):
         with working_directory(self.root_dir):
-            return glob.iglob("**/*?OpenDocument.html", recursive=True)
+            return glob.iglob("**/*?OpenDocument*", recursive=True)
 
     def read(self):
         self._make_archive_dir()
 
         with working_directory(self.root_dir):
-            with open(self.root_contents_page, "r") as obj:
-                # read contents
-                file_contents = obj.read()
-
-                # parse file as HTML document, converting to unicode
-                dammit = UnicodeDammit(file_contents, ['windows-1252'])
-                document = BeautifulSoup(dammit.unicode_markup, self.parser)
-
-            # search document for pages
-            page_links = document.findAll("a", target="NotesView")
-
-            # list of page dicts
-            pages_info = []
-
-            current_page = {}
-
             # running list of parsed urls
-            parsed_urls = []
-
-            for page_link in page_links:
-                page_title = page_link.text
-                
-                if page_title.startswith("---------- Respond:"):
-                    # link is a response
-                    current_page["response_urls"].append(page_link["href"])
-                else:
-                    # jump over elements until we get to page number
-                    page_number = page_link.next.next.next.next.next.next.next.next.next
-                    # add previous page to list if this isn't the first page
-                    if current_page:
-                        pages_info.append(current_page)
-                    # create new page dict
-                    current_page = {"title": page_title,
-                                    "number": page_number,
-                                    "url": page_link["href"],
-                                    "response_urls": []}
-            
-                # store decoded URL
-                parsed_urls.append(urllib.parse.unquote(page_link["href"]))
-
+            parsed_urls = set()
             extra_pages = []
+
+            # dict of page dicts
+            pages_info = {}
+
+            root_contents_pages = glob.glob(self.root_contents_wildcard)
+            total_contents_pages = len(root_contents_pages)
+
+            for j, contents_page in enumerate(root_contents_pages):
+                self.logger.info("Reading contents page %i/%i", j, total_contents_pages)
+
+                with open(contents_page, "r") as obj:
+                    self.logger.info("Reading %s", contents_page)
+
+                    # read contents
+                    file_contents = obj.read()
+
+                    # parse file as HTML document, converting to unicode
+                    dammit = UnicodeDammit(file_contents, ['windows-1252'])
+                    document = BeautifulSoup(dammit.unicode_markup, self.parser)
+
+                # search document for pages
+                page_links = document.findAll("a", target="NotesView")
+
+                current_page_key = ()
+
+                for page_link in page_links:
+                    page_title = page_link.text
+                    
+                    if page_title.startswith("---------- Respond:"):
+                        # link is a response
+                        if not current_page_key:
+                            # this is a response without a parent - ignore
+                            self.logger.warning("Ignoring orphaned response at %s", page_link["href"])
+                        elif page_link["href"] not in pages_info[current_page_key]["response_urls"]:
+                            pages_info[current_page_key]["response_urls"].add(page_link["href"])
+                            
+                            self.logger.info("Found response to page '%s' (p%i)",
+                                             pages_info[current_page_key]["title"],
+                                             pages_info[current_page_key]["number"])
+                    else:
+                        # jump over elements until we get to page number
+                        page_number = int(page_link.next.next.next.next.next.next.next.string)
+
+                        # page dict key
+                        current_page_key = tuple((page_title, page_number))
+
+                        if current_page_key not in pages_info:
+                            # this page hasn't been seen before
+                            pages_info[current_page_key] = {"title": page_title,
+                                                            "number": page_number,
+                                                            "url": page_link["href"],
+                                                            "response_urls": set()}
+
+                            self.logger.info("Found page '%s' (p%i)", page_title, page_number)
+
+                    # store decoded URL
+                    parsed_urls.add(urllib.parse.unquote(page_link["href"]))
 
             # parse remaining pages not on the contents - this is necessary because there are
             # duplicate pages with different URLs... which is stupid :-/
@@ -155,14 +174,14 @@ class LotusXMLBuilder:
                     continue
                 
                 extra_pages.append(page_link)                
-                parsed_urls.append(page_link)
+                parsed_urls.add(page_link)
 
             # total number of pages found
             total = len(pages_info)
             total_extra = len(extra_pages)
 
             # loop over pages in reverse (to get chronological order)
-            for count, page_info in enumerate(reversed(pages_info), 1):
+            for count, page_info in enumerate(reversed(list(pages_info.values())), 1):
                 self.logger.info("%i / %i reading %s (p%s) with %i response(s)",
                                  count, total, page_info["title"], page_info["number"],
                                  len(page_info["response_urls"]))
@@ -221,7 +240,7 @@ class LotusXMLBuilder:
                 else:
                     # this is not a duplicate but is not on the contents page...
                     self.logger.info("adding page '%s' not found on contents page "
-                                     "(no responses will be added)", page)
+                                    "(no responses will be added)", page)
                     
                     self.orphaned_pages.append(page)
 
