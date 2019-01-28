@@ -9,7 +9,7 @@ root_dir = "/path/to/scraped/lotus/directory"
 
 # Pattern to use to search for contents pages contained within root_dir.
 # This should use an accepted glob format (https://docs.python.org/3/library/glob.html).
-root_contents_wildcard = "**/By Author?OpenView&Start=1&Count=5000*"
+root_contents_wildcard = "By Author?OpenView&Start=1&Count=5000*"
 
 # Directory to archive scraped content. This will be filled with
 # individual XML files representing each of the logbook pages.
